@@ -47,7 +47,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 16),
                       _buildDateLabel(),
                       const SizedBox(height: 24),
-                      VerseCard(verse: _currentVerse),
+                      //VerseCard(verse: _currentVerse),
+                      RepaintBoundary(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 350),
+                          switchInCurve: Curves.easeInOutCubicEmphasized,
+                          switchOutCurve: Curves.easeInOutCubicEmphasized,
+                          transitionBuilder: (child, animation) => SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.08),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: FadeTransition(opacity: animation, child: child),
+                          ),
+                          child: VerseCard(
+                            key: ValueKey(_currentVerse.reference),
+                            verse: _currentVerse,
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 32),
                       _buildNewVerseButton(),
                       const SizedBox(height: 16),

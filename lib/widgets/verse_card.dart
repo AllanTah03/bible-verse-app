@@ -9,7 +9,8 @@ class VerseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -86,6 +87,8 @@ class VerseCard extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
+

@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Réduit la latence de rendu pour les appareils à haute fréquence
+  await Future.microtask(
+    () => WidgetsBinding.instance.platformDispatcher.onReportTimings = (_) {},
+  );
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const BibleVerseApp());
 }
