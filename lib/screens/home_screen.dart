@@ -50,9 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       //VerseCard(verse: _currentVerse),
                       RepaintBoundary(
                         child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 350),
-                          switchInCurve: Curves.easeInOutCubicEmphasized,
-                          switchOutCurve: Curves.easeInOutCubicEmphasized,
+                          duration: const Duration(milliseconds: 300),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
                           transitionBuilder: (child, animation) => SlideTransition(
                             position: Tween<Offset>(
                               begin: const Offset(0, 0.08),
