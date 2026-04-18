@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../data/verses_data.dart';
 import '../models/verse.dart';
 import '../widgets/verse_card.dart';
+import '../database/database_helper.dart';
+import '../services/notion_service.dart';
 import 'my_verses_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,20 +17,51 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Verse _currentVerse;
+  List<Verse> _verses = [];
   final _random = Random();
+  bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
-    _currentVerse = _randomVerse();
+    _currentVerse = kPlaceholderVerses[_random.nextInt(kPlaceholderVerses.length)];
+    _loadAndSync();
   }
 
-  Verse _randomVerse() {
-    return kPlaceholderVerses[_random.nextInt(kPlaceholderVerses.length)];
+  Future<void> _loadAndSync() async {
+    // 1. Charge le cache local immédiatement
+    final cached = await DatabaseHelper.instance.getNotionVerses();
+    if (cached.isNotEmpty) {
+      setState(() {
+        _verses = cached;
+        _currentVerse = _verses[_random.nextInt(_verses.length)];
+      });
+    }
+
+    // 2. Tente une sync en arrière-plan si connexion disponible
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.contains(ConnectivityResult.none)) return;
+
+    setState(() => _syncing = true);
+    try {
+      final fresh = await NotionService.fetchVerses();
+      if (fresh.isNotEmpty) {
+        await DatabaseHelper.instance.syncNotionVerses(fresh);
+        setState(() {
+          _verses = fresh;
+          _currentVerse = _verses[_random.nextInt(_verses.length)];
+        });
+      }
+    } catch (_) {
+      // Garde le cache si la sync échoue
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   void _newVerse() {
-    setState(() => _currentVerse = _randomVerse());
+    final pool = _verses.isNotEmpty ? _verses : kPlaceholderVerses;
+    setState(() => _currentVerse = pool[_random.nextInt(pool.length)]);
   }
 
   @override
@@ -47,7 +81,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 16),
                       _buildDateLabel(),
                       const SizedBox(height: 24),
-                      //VerseCard(verse: _currentVerse),
                       RepaintBoundary(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
@@ -68,6 +101,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 32),
                       _buildNewVerseButton(),
+                      if (_syncing) ...[
+                        const SizedBox(height: 12),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: Color(0xFFBDBDBD),
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Synchronisation Notion…',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFFBDBDBD),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 16),
                     ],
                   ),
@@ -128,10 +185,8 @@ class _HomeScreenState extends State<HomeScreen> {
       'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
       'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
     ];
-    final label =
-        '${now.day} ${months[now.month - 1]} ${now.year}';
     return Text(
-      label,
+      '${now.day} ${months[now.month - 1]} ${now.year}',
       style: const TextStyle(
         fontSize: 13,
         color: Color(0xFF9E9E9E),
@@ -204,8 +259,7 @@ class _BottomBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        active ? const Color(0xFF5C6BC0) : const Color(0xFF9E9E9E);
+    final color = active ? const Color(0xFF5C6BC0) : const Color(0xFF9E9E9E);
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -221,8 +275,7 @@ class _BottomBarItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   color: color,
-                  fontWeight:
-                      active ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],

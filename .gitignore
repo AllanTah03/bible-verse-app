@@ -40,6 +40,9 @@ build/
 **/ios/Runner/GeneratedPluginRegistrant.*
 **/ios/Pods/
 
+# Secrets
+lib/config/notion_config.dart
+
 # IDE
 .idea/
 .vscode/
