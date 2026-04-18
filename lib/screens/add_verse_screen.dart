@@ -7,6 +7,34 @@ const _kCategories = [
   'Sagesse', 'Espérance', 'Guérison', 'Grâce', 'Prière',
 ];
 
+// Livres avec leur testament associé
+const Map<String, String> _kBibleBooks = {
+  'Genèse': 'Ancien', 'Exode': 'Ancien', 'Lévitique': 'Ancien',
+  'Nombres': 'Ancien', 'Deutéronome': 'Ancien', 'Josué': 'Ancien',
+  'Juges': 'Ancien', 'Ruth': 'Ancien', '1 Samuel': 'Ancien',
+  '2 Samuel': 'Ancien', '1 Rois': 'Ancien', '2 Rois': 'Ancien',
+  '1 Chroniques': 'Ancien', '2 Chroniques': 'Ancien', 'Esdras': 'Ancien',
+  'Néhémie': 'Ancien', 'Esther': 'Ancien', 'Job': 'Ancien',
+  'Psaumes': 'Ancien', 'Proverbes': 'Ancien', 'Ecclésiaste': 'Ancien',
+  'Cantique des Cantiques': 'Ancien', 'Isaïe': 'Ancien', 'Ésaïe': 'Ancien',
+  'Jérémie': 'Ancien', 'Lamentations': 'Ancien', 'Ézéchiel': 'Ancien',
+  'Daniel': 'Ancien', 'Osée': 'Ancien', 'Joël': 'Ancien',
+  'Amos': 'Ancien', 'Abdias': 'Ancien', 'Jonas': 'Ancien',
+  'Michée': 'Ancien', 'Nahum': 'Ancien', 'Habacuc': 'Ancien',
+  'Sophonie': 'Ancien', 'Aggée': 'Ancien', 'Zacharie': 'Ancien',
+  'Malachie': 'Ancien',
+  'Matthieu': 'Nouveau', 'Marc': 'Nouveau', 'Luc': 'Nouveau',
+  'Jean': 'Nouveau', 'Actes': 'Nouveau', 'Romains': 'Nouveau',
+  '1 Corinthiens': 'Nouveau', '2 Corinthiens': 'Nouveau',
+  'Galates': 'Nouveau', 'Éphésiens': 'Nouveau', 'Philippiens': 'Nouveau',
+  'Colossiens': 'Nouveau', '1 Thessaloniciens': 'Nouveau',
+  '2 Thessaloniciens': 'Nouveau', '1 Timothée': 'Nouveau',
+  '2 Timothée': 'Nouveau', 'Tite': 'Nouveau', 'Philémon': 'Nouveau',
+  'Hébreux': 'Nouveau', 'Jacques': 'Nouveau', '1 Pierre': 'Nouveau',
+  '2 Pierre': 'Nouveau', '1 Jean': 'Nouveau', '2 Jean': 'Nouveau',
+  '3 Jean': 'Nouveau', 'Jude': 'Nouveau', 'Apocalypse': 'Nouveau',
+};
+
 class AddVerseScreen extends StatefulWidget {
   const AddVerseScreen({super.key});
 
@@ -20,6 +48,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _textCtrl = TextEditingController();
   final _bookCtrl = TextEditingController();
   String _testament = 'Nouveau';
+  String _selectedBook = '';
   final Set<String> _selectedCategories = {};
   bool _loading = false;
 
@@ -29,6 +58,15 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     _textCtrl.dispose();
     _bookCtrl.dispose();
     super.dispose();
+  }
+
+  void _onBookSelected(String book) {
+    _bookCtrl.text = book;
+    _selectedBook = book;
+    final testament = _kBibleBooks[book];
+    if (testament != null) {
+      setState(() => _testament = testament);
+    }
   }
 
   Future<void> _save() async {
@@ -79,13 +117,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   v == null || v.trim().isEmpty ? 'Champ requis' : null,
             ),
             const SizedBox(height: 16),
-            _buildField(
-              controller: _bookCtrl,
-              label: 'Livre',
-              hint: 'ex. Jean, Psaumes',
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Champ requis' : null,
-            ),
+            _buildBookAutocomplete(),
             const SizedBox(height: 16),
             _buildTestamentPicker(),
             const SizedBox(height: 16),
@@ -123,6 +155,128 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBookAutocomplete() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Livre',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF2D2D2D),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Autocomplete<String>(
+          optionsBuilder: (textEditingValue) {
+            if (textEditingValue.text.isEmpty) {
+              return _kBibleBooks.keys;
+            }
+            final query = textEditingValue.text.toLowerCase();
+            return _kBibleBooks.keys.where(
+              (book) => book.toLowerCase().contains(query),
+            );
+          },
+          onSelected: _onBookSelected,
+          fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+            // Synchronise le controller interne avec _bookCtrl
+            controller.text = _bookCtrl.text;
+            controller.addListener(() {
+              _bookCtrl.text = controller.text;
+              _selectedBook = controller.text;
+            });
+            return TextFormField(
+              controller: controller,
+              focusNode: focusNode,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Champ requis' : null,
+              decoration: InputDecoration(
+                hintText: 'Rechercher un livre...',
+                hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
+                filled: true,
+                fillColor: Colors.white,
+                suffixIcon: const Icon(Icons.arrow_drop_down,
+                    color: Color(0xFFBDBDBD)),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                      color: Color(0xFF5C6BC0), width: 1.5),
+                ),
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(12),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (_, i) {
+                      final book = options.elementAt(i);
+                      final testament = _kBibleBooks[book]!;
+                      return InkWell(
+                        onTap: () => onSelected(book),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(book,
+                                    style: const TextStyle(fontSize: 14)),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: testament == 'Ancien'
+                                      ? const Color(0xFFF3E5D0)
+                                      : const Color(0xFFE8EAF6),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  testament,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: testament == 'Ancien'
+                                        ? const Color(0xFF8D6E63)
+                                        : const Color(0xFF5C6BC0),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
