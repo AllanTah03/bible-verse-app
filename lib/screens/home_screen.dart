@@ -7,8 +7,10 @@ import '../models/verse.dart';
 import '../widgets/verse_card.dart';
 import '../database/database_helper.dart';
 import '../services/notion_service.dart';
+import '../services/notification_service.dart';
 import 'my_verses_screen.dart';
 import 'all_verses_screen.dart';
+import 'notification_settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,6 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _currentVerse =
         kPlaceholderVerses[_random.nextInt(kPlaceholderVerses.length)];
     _loadAndSync();
+    // Replanifie la notification avec un nouveau verset à chaque ouverture de l'app
+    NotificationService.rescheduleIfEnabled();
   }
 
   Future<void> _loadAndSync() async {
@@ -174,6 +178,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            icon: Icon(Icons.notifications_none_rounded,
+                color: cs.onSurfaceVariant),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const NotificationSettingsScreen()),
+            ),
+            tooltip: 'Notifications',
           ),
           ValueListenableBuilder<ThemeMode>(
             valueListenable: themeNotifier,
