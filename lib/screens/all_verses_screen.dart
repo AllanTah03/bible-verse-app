@@ -66,6 +66,53 @@ class _AllVersesScreenState extends State<AllVersesScreen> {
     }).toList();
   }
 
+  Future<void> _delete(Verse verse) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Supprimer ce verset ?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(verse.reference,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            if (!verse.isPersonal) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Ce verset ne sera plus affiché, même après une synchronisation Notion.',
+                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Annuler',
+                style: TextStyle(color: cs.onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer',
+                style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      if (verse.isPersonal && verse.id != null) {
+        await DatabaseHelper.instance.deleteVerse(verse.id!);
+      } else {
+        // Ajoute à la liste noire pour ne pas réimporter lors des syncs futures
+        await DatabaseHelper.instance.deleteNotionVerse(verse.reference);
+      }
+      _load();
+    }
+  }
+
   Future<void> _goToAdd() async {
     final added = await Navigator.push<bool>(
       context,
@@ -121,6 +168,7 @@ class _AllVersesScreenState extends State<AllVersesScreen> {
                             return VerseCard(
                               verse: verse,
                               showSource: true,
+                              onDelete: () => _delete(verse),
                             );
                           },
                         ),

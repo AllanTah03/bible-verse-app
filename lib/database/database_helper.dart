@@ -15,16 +15,18 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     final path = join(await getDatabasesPath(), 'bible_verses.db');
-    return openDatabase(path, version: 2, onCreate: _onCreate, onUpgrade: _onUpgrade);
+    return openDatabase(path, version: 3, onCreate: _onCreate, onUpgrade: _onUpgrade);
   }
 
   Future<void> _onCreate(Database db, int version) async {
     await _createPersonalTable(db);
     await _createNotionTable(db);
+    await _createDeletedRefsTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) await _createNotionTable(db);
+    if (oldVersion < 3) await _createDeletedRefsTable(db);
   }
 
   Future<void> _createPersonalTable(Database db) async {
@@ -55,6 +57,15 @@ class DatabaseHelper {
     ''');
   }
 
+  // Stocke les références Notion supprimées pour ne pas les réimporter à la sync
+  Future<void> _createDeletedRefsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE deleted_notion_refs (
+        reference TEXT PRIMARY KEY
+      )
+    ''');
+  }
+
   // --- Versets personnels ---
 
   Future<int> insertVerse(Verse verse) async {
@@ -75,13 +86,32 @@ class DatabaseHelper {
 
   // --- Cache Notion ---
 
+  // Supprime un verset Notion du cache et l'ajoute à la liste noire pour éviter sa réimportation
+  Future<void> deleteNotionVerse(String reference) async {
+    final db = await database;
+    await db.insert(
+      'deleted_notion_refs',
+      {'reference': reference},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    await db.delete('notion_verses',
+        where: 'reference = ?', whereArgs: [reference]);
+  }
+
+  // Sync en respectant la liste noire des versets supprimés par l'utilisateur
   Future<void> syncNotionVerses(List<Verse> verses) async {
     final db = await database;
+    final deletedRefs = (await db.query('deleted_notion_refs'))
+        .map((r) => r['reference'] as String)
+        .toSet();
+
     final batch = db.batch();
     batch.delete('notion_verses');
     for (final v in verses) {
-      batch.insert('notion_verses', v.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      if (!deletedRefs.contains(v.reference)) {
+        batch.insert('notion_verses', v.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
     }
     await batch.commit(noResult: true);
   }
