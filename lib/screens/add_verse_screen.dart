@@ -7,7 +7,6 @@ const _kCategories = [
   'Sagesse', 'Espérance', 'Guérison', 'Grâce', 'Prière',
 ];
 
-// Livres avec leur testament associé
 const Map<String, String> _kBibleBooks = {
   'Genèse': 'Ancien', 'Exode': 'Ancien', 'Lévitique': 'Ancien',
   'Nombres': 'Ancien', 'Deutéronome': 'Ancien', 'Josué': 'Ancien',
@@ -72,8 +71,37 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
+
+    final ref = _referenceCtrl.text.trim();
+    // Bloque l'ajout si la référence existe déjà dans les versets personnels ou Notion
+    final exists = await DatabaseHelper.instance.verseExistsByReference(ref);
+    if (exists) {
+      setState(() => _loading = false);
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: const Text('Verset déjà présent'),
+            content: Text(
+                'Un verset avec la référence "$ref" existe déjà dans la bibliothèque.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('OK',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary)),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+
     final verse = Verse(
-      reference: _referenceCtrl.text.trim(),
+      reference: ref,
       text: _textCtrl.text.trim(),
       book: _bookCtrl.text.trim(),
       testament: _testament,
@@ -86,21 +114,16 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7F4),
-      appBar: AppBar(
-        title: const Text('Ajouter un verset'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF2D2D2D),
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-      ),
+      appBar: AppBar(title: const Text('Ajouter un verset')),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
             _buildField(
+              cs: cs,
               controller: _referenceCtrl,
               label: 'Référence',
               hint: 'ex. Jean 3:16',
@@ -109,6 +132,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
             ),
             const SizedBox(height: 16),
             _buildField(
+              cs: cs,
               controller: _textCtrl,
               label: 'Texte du verset',
               hint: 'Saisir le texte complet...',
@@ -117,19 +141,19 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   v == null || v.trim().isEmpty ? 'Champ requis' : null,
             ),
             const SizedBox(height: 16),
-            _buildBookAutocomplete(),
+            _buildBookAutocomplete(cs),
             const SizedBox(height: 16),
-            _buildTestamentPicker(),
+            _buildTestamentPicker(cs),
             const SizedBox(height: 16),
-            _buildCategoryPicker(),
+            _buildCategoryPicker(cs),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _loading ? null : _save,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5C6BC0),
-                  foregroundColor: Colors.white,
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -137,12 +161,12 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   elevation: 0,
                 ),
                 child: _loading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: cs.onPrimary,
                         ),
                       )
                     : const Text(
@@ -158,16 +182,16 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     );
   }
 
-  Widget _buildBookAutocomplete() {
+  Widget _buildBookAutocomplete(ColorScheme cs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Livre',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF2D2D2D),
+            color: cs.onSurface,
           ),
         ),
         const SizedBox(height: 8),
@@ -183,7 +207,6 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
           },
           onSelected: _onBookSelected,
           fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
-            // Synchronise le controller interne avec _bookCtrl
             controller.text = _bookCtrl.text;
             controller.addListener(() {
               _bookCtrl.text = controller.text;
@@ -196,25 +219,23 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   v == null || v.trim().isEmpty ? 'Champ requis' : null,
               decoration: InputDecoration(
                 hintText: 'Rechercher un livre...',
-                hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
+                hintStyle: TextStyle(color: cs.outline),
                 filled: true,
-                fillColor: Colors.white,
-                suffixIcon: const Icon(Icons.arrow_drop_down,
-                    color: Color(0xFFBDBDBD)),
+                fillColor: cs.surface,
+                suffixIcon: Icon(Icons.arrow_drop_down, color: cs.outline),
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 14),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
+                  borderSide: BorderSide(color: cs.outlineVariant),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
+                  borderSide: BorderSide(color: cs.outlineVariant),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                      color: Color(0xFF5C6BC0), width: 1.5),
+                  borderSide: BorderSide(color: cs.primary, width: 1.5),
                 ),
               ),
             );
@@ -225,6 +246,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               child: Material(
                 elevation: 4,
                 borderRadius: BorderRadius.circular(12),
+                color: cs.surface,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 220),
                   child: ListView.builder(
@@ -234,6 +256,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                     itemBuilder: (_, i) {
                       final book = options.elementAt(i);
                       final testament = _kBibleBooks[book]!;
+                      final isAncien = testament == 'Ancien';
                       return InkWell(
                         onTap: () => onSelected(book),
                         child: Padding(
@@ -243,24 +266,26 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                             children: [
                               Expanded(
                                 child: Text(book,
-                                    style: const TextStyle(fontSize: 14)),
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: cs.onSurface)),
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: testament == 'Ancien'
-                                      ? const Color(0xFFF3E5D0)
-                                      : const Color(0xFFE8EAF6),
+                                  color: isAncien
+                                      ? cs.tertiaryContainer
+                                      : cs.primaryContainer,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   testament,
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: testament == 'Ancien'
-                                        ? const Color(0xFF8D6E63)
-                                        : const Color(0xFF5C6BC0),
+                                    color: isAncien
+                                        ? cs.onTertiaryContainer
+                                        : cs.onPrimaryContainer,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -281,6 +306,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   }
 
   Widget _buildField({
+    required ColorScheme cs,
     required TextEditingController controller,
     required String label,
     required String hint,
@@ -292,10 +318,10 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF2D2D2D),
+            color: cs.onSurface,
           ),
         ),
         const SizedBox(height: 8),
@@ -305,23 +331,22 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
+            hintStyle: TextStyle(color: cs.outline),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: cs.surface,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
+              borderSide: BorderSide(color: cs.outlineVariant),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
+              borderSide: BorderSide(color: cs.outlineVariant),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
+              borderSide: BorderSide(color: cs.primary, width: 1.5),
             ),
           ),
         ),
@@ -329,16 +354,16 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     );
   }
 
-  Widget _buildTestamentPicker() {
+  Widget _buildTestamentPicker(ColorScheme cs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Testament',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF2D2D2D),
+            color: cs.onSurface,
           ),
         ),
         const SizedBox(height: 8),
@@ -353,14 +378,10 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   margin: EdgeInsets.only(right: t == 'Ancien' ? 8 : 0),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: selected
-                        ? const Color(0xFF5C6BC0)
-                        : Colors.white,
+                    color: selected ? cs.primary : cs.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: selected
-                          ? const Color(0xFF5C6BC0)
-                          : const Color(0xFFEEEEEE),
+                      color: selected ? cs.primary : cs.outlineVariant,
                     ),
                   ),
                   child: Text(
@@ -368,9 +389,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
-                      color: selected
-                          ? Colors.white
-                          : const Color(0xFF9E9E9E),
+                      color: selected ? cs.onPrimary : cs.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -382,16 +401,16 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     );
   }
 
-  Widget _buildCategoryPicker() {
+  Widget _buildCategoryPicker(ColorScheme cs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Catégories (optionnel)',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF2D2D2D),
+            color: cs.onSurface,
           ),
         ),
         const SizedBox(height: 8),
@@ -408,26 +427,20 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: selected
-                      ? const Color(0xFF5C6BC0)
-                      : Colors.white,
+                  color: selected ? cs.primary : cs.surface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: selected
-                        ? const Color(0xFF5C6BC0)
-                        : const Color(0xFFEEEEEE),
+                    color: selected ? cs.primary : cs.outlineVariant,
                   ),
                 ),
                 child: Text(
                   cat,
                   style: TextStyle(
                     fontSize: 13,
-                    color: selected
-                        ? Colors.white
-                        : const Color(0xFF9E9E9E),
+                    color: selected ? cs.onPrimary : cs.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

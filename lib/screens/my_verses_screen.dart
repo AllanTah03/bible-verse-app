@@ -25,17 +25,19 @@ class _MyVersesScreenState extends State<MyVersesScreen> {
   }
 
   Future<void> _delete(Verse verse) async {
+    final cs = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Supprimer ce verset ?'),
         content: Text(verse.reference),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler',
-                style: TextStyle(color: Color(0xFF9E9E9E))),
+            child: Text('Annuler',
+                style: TextStyle(color: cs.onSurfaceVariant)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -61,19 +63,13 @@ class _MyVersesScreenState extends State<MyVersesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7F4),
-      appBar: AppBar(
-        title: const Text('Mes versets'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF2D2D2D),
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-      ),
+      appBar: AppBar(title: const Text('Mes versets')),
       floatingActionButton: FloatingActionButton(
         onPressed: _goToAdd,
-        backgroundColor: const Color(0xFF5C6BC0),
-        foregroundColor: Colors.white,
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
         elevation: 2,
         child: const Icon(Icons.add),
       ),
@@ -81,8 +77,8 @@ class _MyVersesScreenState extends State<MyVersesScreen> {
         future: _versesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF5C6BC0)),
+            return Center(
+              child: CircularProgressIndicator(color: cs.primary),
             );
           }
           final verses = snapshot.data ?? [];
@@ -91,22 +87,22 @@ class _MyVersesScreenState extends State<MyVersesScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.bookmark_border_rounded,
-                      size: 64, color: Color(0xFFBDBDBD)),
+                  Icon(Icons.bookmark_border_rounded,
+                      size: 64, color: cs.outline),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Aucun verset enregistré',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Color(0xFF9E9E9E),
+                      color: cs.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _goToAdd,
-                    child: const Text(
+                    child: Text(
                       'Ajouter mon premier verset',
-                      style: TextStyle(color: Color(0xFF5C6BC0)),
+                      style: TextStyle(color: cs.primary),
                     ),
                   ),
                 ],

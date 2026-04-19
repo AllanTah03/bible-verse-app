@@ -1,12 +1,14 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../config/theme_notifier.dart';
 import '../data/verses_data.dart';
 import '../models/verse.dart';
 import '../widgets/verse_card.dart';
 import '../database/database_helper.dart';
 import '../services/notion_service.dart';
 import 'my_verses_screen.dart';
+import 'all_verses_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,12 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _currentVerse = kPlaceholderVerses[_random.nextInt(kPlaceholderVerses.length)];
+    _currentVerse =
+        kPlaceholderVerses[_random.nextInt(kPlaceholderVerses.length)];
     _loadAndSync();
   }
 
   Future<void> _loadAndSync() async {
-    // 1. Charge le cache local immédiatement
     final cached = await DatabaseHelper.instance.getNotionVerses();
     if (cached.isNotEmpty) {
       setState(() {
@@ -38,7 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
-    // 2. Tente une sync en arrière-plan si connexion disponible
     final connectivity = await Connectivity().checkConnectivity();
     if (connectivity.contains(ConnectivityResult.none)) return;
 
@@ -53,7 +54,6 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (_) {
-      // Garde le cache si la sync échoue
     } finally {
       if (mounted) setState(() => _syncing = false);
     }
@@ -66,12 +66,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7F4),
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(cs),
             Expanded(
               child: Center(
                 child: SingleChildScrollView(
@@ -79,19 +79,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const SizedBox(height: 16),
-                      _buildDateLabel(),
+                      _buildDateLabel(cs),
                       const SizedBox(height: 24),
                       RepaintBoundary(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
                           switchInCurve: Curves.easeOut,
                           switchOutCurve: Curves.easeIn,
-                          transitionBuilder: (child, animation) => SlideTransition(
+                          transitionBuilder: (child, animation) =>
+                              SlideTransition(
                             position: Tween<Offset>(
                               begin: const Offset(0, 0.08),
                               end: Offset.zero,
                             ).animate(animation),
-                            child: FadeTransition(opacity: animation, child: child),
+                            child: FadeTransition(
+                                opacity: animation, child: child),
                           ),
                           child: VerseCard(
                             key: ValueKey(_currentVerse.reference),
@@ -100,10 +102,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 32),
-                      _buildNewVerseButton(),
+                      _buildNewVerseButton(cs),
                       if (_syncing) ...[
                         const SizedBox(height: 12),
-                        const Row(
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
@@ -111,15 +113,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               height: 12,
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.5,
-                                color: Color(0xFFBDBDBD),
+                                color: cs.outline,
                               ),
                             ),
-                            SizedBox(width: 6),
+                            const SizedBox(width: 6),
                             Text(
                               'Synchronisation Notion…',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFFBDBDBD),
+                                color: cs.outline,
                               ),
                             ),
                           ],
@@ -131,55 +133,71 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            _buildBottomBar(context),
+            _buildBottomBar(context, cs),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(ColorScheme cs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 24, 12, 0),
       child: Row(
         children: [
           Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF5C6BC0),
+              color: cs.primary,
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.menu_book_rounded,
                 color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Verset du Jour',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF2D2D2D),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Verset du Jour',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
                 ),
-              ),
-              Text(
-                'Bible de Jérusalem',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF9E9E9E),
+                Text(
+                  'Bible de Jérusalem',
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                 ),
+              ],
+            ),
+          ),
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: themeNotifier,
+            builder: (_, mode, __) => IconButton(
+              icon: Icon(
+                mode == ThemeMode.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded,
+                color: cs.onSurfaceVariant,
               ),
-            ],
+              onPressed: () {
+                themeNotifier.value = mode == ThemeMode.dark
+                    ? ThemeMode.light
+                    : ThemeMode.dark;
+              },
+              tooltip: mode == ThemeMode.dark ? 'Mode clair' : 'Mode sombre',
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDateLabel() {
+  Widget _buildDateLabel(ColorScheme cs) {
     final now = DateTime.now();
     final months = [
       'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
@@ -187,22 +205,22 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     return Text(
       '${now.day} ${months[now.month - 1]} ${now.year}',
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
-        color: Color(0xFF9E9E9E),
+        color: cs.onSurfaceVariant,
         letterSpacing: 0.5,
       ),
     );
   }
 
-  Widget _buildNewVerseButton() {
+  Widget _buildNewVerseButton(ColorScheme cs) {
     return ElevatedButton.icon(
       onPressed: _newVerse,
       icon: const Icon(Icons.refresh_rounded, size: 18),
       label: const Text('Nouveau verset'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF5C6BC0),
-        foregroundColor: Colors.white,
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(30),
@@ -212,11 +230,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBottomBar(BuildContext context) {
+  Widget _buildBottomBar(BuildContext context, ColorScheme cs) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(top: BorderSide(color: cs.outlineVariant)),
       ),
       child: SafeArea(
         top: false,
@@ -226,12 +244,24 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.home_rounded,
               label: 'Accueil',
               active: true,
+              cs: cs,
               onTap: () {},
+            ),
+            _BottomBarItem(
+              icon: Icons.library_books_rounded,
+              label: 'Bibliothèque',
+              active: false,
+              cs: cs,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AllVersesScreen()),
+              ),
             ),
             _BottomBarItem(
               icon: Icons.bookmark_border_rounded,
               label: 'Mes versets',
               active: false,
+              cs: cs,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const MyVersesScreen()),
@@ -248,18 +278,20 @@ class _BottomBarItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
+  final ColorScheme cs;
   final VoidCallback onTap;
 
   const _BottomBarItem({
     required this.icon,
     required this.label,
     required this.active,
+    required this.cs,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF5C6BC0) : const Color(0xFF9E9E9E);
+    final color = active ? cs.primary : cs.onSurfaceVariant;
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -275,7 +307,8 @@ class _BottomBarItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   color: color,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight:
+                      active ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],

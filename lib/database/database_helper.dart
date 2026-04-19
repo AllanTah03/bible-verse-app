@@ -98,4 +98,23 @@ class DatabaseHelper {
         await db.rawQuery('SELECT COUNT(*) FROM notion_verses'));
     return (count ?? 0) > 0;
   }
+
+  // Vérifie dans les deux tables si une référence existe déjà (insensible à la casse)
+  Future<bool> verseExistsByReference(String reference) async {
+    final db = await database;
+    final ref = reference.trim().toLowerCase();
+    final personal = await db.query('personal_verses',
+        where: 'LOWER(reference) = ?', whereArgs: [ref], limit: 1);
+    if (personal.isNotEmpty) return true;
+    final notion = await db.query('notion_verses',
+        where: 'LOWER(reference) = ?', whereArgs: [ref], limit: 1);
+    return notion.isNotEmpty;
+  }
+
+  // Retourne tous les versets (personnels en premier, puis Notion)
+  Future<List<Verse>> getAllVersesFromAllSources() async {
+    final personal = await getAllVerses();
+    final notion = await getNotionVerses();
+    return [...personal, ...notion];
+  }
 }
