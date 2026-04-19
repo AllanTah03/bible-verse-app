@@ -15,18 +15,20 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     final path = join(await getDatabasesPath(), 'bible_verses.db');
-    return openDatabase(path, version: 3, onCreate: _onCreate, onUpgrade: _onUpgrade);
+    return openDatabase(path, version: 4, onCreate: _onCreate, onUpgrade: _onUpgrade);
   }
 
   Future<void> _onCreate(Database db, int version) async {
     await _createPersonalTable(db);
     await _createNotionTable(db);
     await _createDeletedRefsTable(db);
+    await _createNotionOverridesTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) await _createNotionTable(db);
     if (oldVersion < 3) await _createDeletedRefsTable(db);
+    if (oldVersion < 4) await _createNotionOverridesTable(db);
   }
 
   Future<void> _createPersonalTable(Database db) async {
@@ -66,11 +68,34 @@ class DatabaseHelper {
     ''');
   }
 
+  // Stocke les corrections apportées aux versets Notion pour survivre aux syncs
+  Future<void> _createNotionOverridesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE notion_overrides (
+        reference TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        book TEXT NOT NULL,
+        testament TEXT NOT NULL,
+        categories TEXT
+      )
+    ''');
+  }
+
   // --- Versets personnels ---
 
   Future<int> insertVerse(Verse verse) async {
     final db = await database;
     return db.insert('personal_verses', verse.toMap());
+  }
+
+  Future<void> updatePersonalVerse(Verse verse) async {
+    final db = await database;
+    await db.update(
+      'personal_verses',
+      verse.toMap(),
+      where: 'id = ?',
+      whereArgs: [verse.id],
+    );
   }
 
   Future<List<Verse>> getAllVerses() async {
@@ -94,24 +119,56 @@ class DatabaseHelper {
       {'reference': reference},
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
+    await db.delete('notion_overrides',
+        where: 'reference = ?', whereArgs: [reference]);
     await db.delete('notion_verses',
         where: 'reference = ?', whereArgs: [reference]);
   }
 
-  // Sync en respectant la liste noire des versets supprimés par l'utilisateur
+  // Sauvegarde les corrections d'un verset Notion — survit aux syncs futures
+  Future<void> updateNotionVerse(Verse verse) async {
+    final db = await database;
+    final override = {
+      'reference': verse.reference,
+      'text': verse.text,
+      'book': verse.book,
+      'testament': verse.testament,
+      'categories': verse.categories.join(','),
+    };
+    await db.insert('notion_overrides', override,
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.update('notion_verses', verse.toMap(),
+        where: 'reference = ?', whereArgs: [verse.reference]);
+  }
+
+  // Sync en respectant la liste noire et les corrections de l'utilisateur
   Future<void> syncNotionVerses(List<Verse> verses) async {
     final db = await database;
+
     final deletedRefs = (await db.query('deleted_notion_refs'))
         .map((r) => r['reference'] as String)
         .toSet();
 
+    // Charge les overrides pour réappliquer les corrections après la sync
+    final overrides = {
+      for (final r in await db.query('notion_overrides'))
+        r['reference'] as String: r
+    };
+
     final batch = db.batch();
     batch.delete('notion_verses');
     for (final v in verses) {
-      if (!deletedRefs.contains(v.reference)) {
-        batch.insert('notion_verses', v.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
+      if (deletedRefs.contains(v.reference)) continue;
+      final map = v.toMap();
+      if (overrides.containsKey(v.reference)) {
+        final o = overrides[v.reference]!;
+        map['text'] = o['text'];
+        map['book'] = o['book'];
+        map['testament'] = o['testament'];
+        map['categories'] = o['categories'];
       }
+      batch.insert('notion_verses', map,
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
   }
@@ -130,9 +187,13 @@ class DatabaseHelper {
   }
 
   // Vérifie dans les deux tables si une référence existe déjà (insensible à la casse)
-  Future<bool> verseExistsByReference(String reference) async {
+  Future<bool> verseExistsByReference(String reference,
+      {String? excludeRef}) async {
     final db = await database;
     final ref = reference.trim().toLowerCase();
+    if (excludeRef != null && ref == excludeRef.trim().toLowerCase()) {
+      return false;
+    }
     final personal = await db.query('personal_verses',
         where: 'LOWER(reference) = ?', whereArgs: [ref], limit: 1);
     if (personal.isNotEmpty) return true;

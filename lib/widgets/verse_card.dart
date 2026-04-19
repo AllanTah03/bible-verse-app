@@ -4,12 +4,14 @@ import '../models/verse.dart';
 class VerseCard extends StatelessWidget {
   final Verse verse;
   final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
   final bool showSource;
 
   const VerseCard({
     super.key,
     required this.verse,
     this.onDelete,
+    this.onEdit,
     this.showSource = false,
   });
 
@@ -83,14 +85,31 @@ class VerseCard extends StatelessWidget {
                       color: cs.primary,
                     ),
                   ),
-                  if (onDelete != null)
-                    IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          size: 20, color: cs.outline),
-                      onPressed: onDelete,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onEdit != null)
+                        IconButton(
+                          icon: Icon(Icons.edit_outlined,
+                              size: 20, color: cs.outline),
+                          onPressed: onEdit,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Modifier',
+                        ),
+                      if (onEdit != null && onDelete != null)
+                        const SizedBox(width: 8),
+                      if (onDelete != null)
+                        IconButton(
+                          icon: Icon(Icons.delete_outline,
+                              size: 20, color: cs.outline),
+                          onPressed: onDelete,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Supprimer',
+                        ),
+                    ],
+                  ),
                 ],
               ),
               if (verse.categories.isNotEmpty) ...[

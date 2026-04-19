@@ -35,7 +35,10 @@ const Map<String, String> _kBibleBooks = {
 };
 
 class AddVerseScreen extends StatefulWidget {
-  const AddVerseScreen({super.key});
+  // Si initialVerse est fourni, l'écran s'ouvre en mode édition
+  final Verse? initialVerse;
+
+  const AddVerseScreen({super.key, this.initialVerse});
 
   @override
   State<AddVerseScreen> createState() => _AddVerseScreenState();
@@ -50,6 +53,23 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   String _selectedBook = '';
   final Set<String> _selectedCategories = {};
   bool _loading = false;
+
+  bool get _isEditing => widget.initialVerse != null;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pré-remplit les champs si on est en mode édition
+    final v = widget.initialVerse;
+    if (v != null) {
+      _referenceCtrl.text = v.reference;
+      _textCtrl.text = v.text;
+      _bookCtrl.text = v.book;
+      _selectedBook = v.book;
+      _testament = v.testament;
+      _selectedCategories.addAll(v.categories);
+    }
+  }
 
   @override
   void dispose() {
@@ -73,8 +93,13 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     setState(() => _loading = true);
 
     final ref = _referenceCtrl.text.trim();
+
+    // En mode ajout, ou si la référence a changé, vérifie les doublons
     // Bloque l'ajout si la référence existe déjà dans les versets personnels ou Notion
-    final exists = await DatabaseHelper.instance.verseExistsByReference(ref);
+    final exists = await DatabaseHelper.instance.verseExistsByReference(
+      ref,
+      excludeRef: widget.initialVerse?.reference,
+    );
     if (exists) {
       setState(() => _loading = false);
       if (mounted) {
@@ -83,7 +108,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
           builder: (ctx) => AlertDialog(
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16)),
-            title: const Text('Verset déjà présent'),
+            title: const Text('Référence déjà utilisée'),
             content: Text(
                 'Un verset avec la référence "$ref" existe déjà dans la bibliothèque.'),
             actions: [
@@ -101,14 +126,25 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     }
 
     final verse = Verse(
+      id: widget.initialVerse?.id,
       reference: ref,
       text: _textCtrl.text.trim(),
       book: _bookCtrl.text.trim(),
       testament: _testament,
       categories: _selectedCategories.toList(),
-      isPersonal: true,
+      isPersonal: widget.initialVerse?.isPersonal ?? true,
     );
-    await DatabaseHelper.instance.insertVerse(verse);
+
+    if (_isEditing) {
+      if (verse.isPersonal) {
+        await DatabaseHelper.instance.updatePersonalVerse(verse);
+      } else {
+        await DatabaseHelper.instance.updateNotionVerse(verse);
+      }
+    } else {
+      await DatabaseHelper.instance.insertVerse(verse);
+    }
+
     if (mounted) Navigator.pop(context, true);
   }
 
@@ -116,7 +152,9 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Ajouter un verset')),
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Modifier le verset' : 'Ajouter un verset'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -169,9 +207,9 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                           color: cs.onPrimary,
                         ),
                       )
-                    : const Text(
-                        'Enregistrer',
-                        style: TextStyle(
+                    : Text(
+                        _isEditing ? 'Enregistrer les modifications' : 'Enregistrer',
+                        style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600),
                       ),
               ),

@@ -113,6 +113,15 @@ class _AllVersesScreenState extends State<AllVersesScreen> {
     }
   }
 
+  Future<void> _edit(Verse verse) async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+          builder: (_) => AddVerseScreen(initialVerse: verse)),
+    );
+    if (updated == true) _load();
+  }
+
   Future<void> _goToAdd() async {
     final added = await Navigator.push<bool>(
       context,
@@ -168,6 +177,7 @@ class _AllVersesScreenState extends State<AllVersesScreen> {
                             return VerseCard(
                               verse: verse,
                               showSource: true,
+                              onEdit: () => _edit(verse),
                               onDelete: () => _delete(verse),
                             );
                           },

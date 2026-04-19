@@ -53,6 +53,15 @@ class _MyVersesScreenState extends State<MyVersesScreen> {
     }
   }
 
+  Future<void> _edit(Verse verse) async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+          builder: (_) => AddVerseScreen(initialVerse: verse)),
+    );
+    if (updated == true) setState(() => _load());
+  }
+
   Future<void> _goToAdd() async {
     final added = await Navigator.push<bool>(
       context,
@@ -114,6 +123,7 @@ class _MyVersesScreenState extends State<MyVersesScreen> {
             itemCount: verses.length,
             itemBuilder: (_, i) => VerseCard(
               verse: verses[i],
+              onEdit: () => _edit(verses[i]),
               onDelete: () => _delete(verses[i]),
             ),
           );
