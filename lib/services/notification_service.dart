@@ -19,8 +19,8 @@ class NotificationService {
 
   static Future<void> initialize() async {
     tz.initializeTimeZones();
-    final timezoneName = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(timezoneName));
+    final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -65,6 +65,8 @@ class NotificationService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       // Répète chaque jour à la même heure
       matchDateTimeComponents: DateTimeComponents.time,
     );
