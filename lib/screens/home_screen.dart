@@ -8,6 +8,7 @@ import '../widgets/verse_card.dart';
 import '../database/database_helper.dart';
 import '../services/notion_service.dart';
 import '../services/notification_service.dart';
+import '../services/widget_service.dart';
 import 'my_verses_screen.dart';
 import 'all_verses_screen.dart';
 import 'notification_settings_screen.dart';
@@ -42,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _verses = cached;
         _currentVerse = _verses[_random.nextInt(_verses.length)];
       });
+      WidgetService.updateWidget(_currentVerse);
     }
 
     final connectivity = await Connectivity().checkConnectivity();
@@ -56,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _verses = fresh;
           _currentVerse = _verses[_random.nextInt(_verses.length)];
         });
+        WidgetService.updateWidget(_currentVerse);
       }
     } catch (_) {
     } finally {
@@ -66,6 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _newVerse() {
     final pool = _verses.isNotEmpty ? _verses : kPlaceholderVerses;
     setState(() => _currentVerse = pool[_random.nextInt(pool.length)]);
+    // Met à jour le widget écran d'accueil avec le nouveau verset
+    WidgetService.updateWidget(_currentVerse);
   }
 
   @override
